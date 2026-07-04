@@ -1,0 +1,30 @@
+# Build output
+/target/
+/build/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Spring Boot local configs
+application-local.properties
+application-dev.properties
+
+# Temporary files
+*.tmp
+*.swp
