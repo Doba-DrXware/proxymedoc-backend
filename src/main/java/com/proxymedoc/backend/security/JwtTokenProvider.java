@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Component
@@ -18,7 +20,7 @@ public class JwtTokenProvider {
     private int jwtExpirationMs;
 
     public String generateToken(Long userId, String email, String role) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        SecretKey key = getSigningKey();
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
 
@@ -33,40 +35,36 @@ public class JwtTokenProvider {
     }
 
     public Long getUserIdFromToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+            .setSigningKey(getSigningKey())
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
         return claims.get("userId", Long.class);
     }
 
     public String getEmailFromToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+            .setSigningKey(getSigningKey())
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
         return claims.getSubject();
     }
 
     public String getRoleFromToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+            .setSigningKey(getSigningKey())
+            .build()
+            .parseClaimsJws(token)
+            .getBody();
         return claims.get("role", String.class);
     }
 
     public boolean validateToken(String token) {
         try {
-            SecretKey key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
             Jwts.parserBuilder()
-                    .setSigningKey(key)
+                    .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(token);
             return true;
@@ -80,5 +78,20 @@ public class JwtTokenProvider {
             System.err.println("JWT claims string is empty: " + ex.getMessage());
         }
         return false;
+    }
+
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
+        // HS512 requires at least 512 bits (64 bytes). If provided secret is shorter,
+        // derive a 64-byte key deterministically via SHA-512 of the secret.
+        try {
+            if (keyBytes.length < 64) {
+                MessageDigest md = MessageDigest.getInstance("SHA-512");
+                keyBytes = md.digest(keyBytes);
+            }
+        } catch (Exception e) {
+            // fallback to using the raw bytes (Keys.hmacShaKeyFor will still validate length)
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

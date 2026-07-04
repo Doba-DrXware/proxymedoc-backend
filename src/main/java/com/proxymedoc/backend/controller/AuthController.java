@@ -10,6 +10,7 @@ import com.proxymedoc.backend.repository.PharmacieRepository;
 import com.proxymedoc.backend.repository.UtilisateurRepository;
 import com.proxymedoc.backend.security.JwtAuthenticationResponse;
 import com.proxymedoc.backend.security.JwtTokenProvider;
+import com.proxymedoc.backend.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,13 +28,15 @@ public class AuthController {
     private final PharmacieRepository pharmacieRepository;
     private final JwtTokenProvider tokenProvider;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityUtil securityUtil;
 
     @Autowired
-    public AuthController(UtilisateurRepository utilisateurRepository, PharmacieRepository pharmacieRepository, JwtTokenProvider tokenProvider, PasswordEncoder passwordEncoder) {
+    public AuthController(UtilisateurRepository utilisateurRepository, PharmacieRepository pharmacieRepository, JwtTokenProvider tokenProvider, PasswordEncoder passwordEncoder, SecurityUtil securityUtil) {
         this.utilisateurRepository = utilisateurRepository;
         this.pharmacieRepository = pharmacieRepository;
         this.tokenProvider = tokenProvider;
         this.passwordEncoder = passwordEncoder;
+        this.securityUtil = securityUtil;
     }
 
     @PostMapping("/register")
@@ -102,6 +105,24 @@ public class AuthController {
         ));
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<?> me() {
+        Utilisateur user = securityUtil.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Non authentifié"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "user", Map.of(
+                "id", user.getId(),
+                "role", user.getRole().name().toLowerCase(),
+                "name", user.getNom(),
+                "email", user.getEmail()
+            )
+        ));
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, Object> payload) {
         String email = ((String) payload.getOrDefault("email", "")).trim();
@@ -136,5 +157,32 @@ public class AuthController {
                 "email", user.getEmail()
             )
         ));
+    }
+
+    // DEV only: reset password for a given admin email (requires dev secret)
+    @PostMapping("/admin/reset-password")
+    public ResponseEntity<?> resetAdminPassword(@RequestBody Map<String, String> payload) {
+        String secret = payload.getOrDefault("secret", "");
+        // simple dev-only guard
+        if (!"proxymedoc-dev-reset".equals(secret)) {
+            return ResponseEntity.status(403).body(Map.of("success", false, "message", "Forbidden"));
+        }
+
+        String email = payload.getOrDefault("email", "");
+        String newPassword = payload.getOrDefault("password", "");
+        if (email.isEmpty() || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "email and password required"));
+        }
+
+        Optional<Utilisateur> userOpt = utilisateurRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
+        }
+
+        Utilisateur user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        utilisateurRepository.save(user);
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "Password reset"));
     }
 }

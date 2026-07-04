@@ -34,13 +34,23 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(401, "Unauthorized");
+                    response.setStatus(401);
+                    response.setContentType("application/json;charset=UTF-8");
+                    String body = "{ \"success\": false, \"message\": \"Unauthorized\" }";
+                    try {
+                        response.getWriter().write(body);
+                    } catch (Exception ex) {
+                        // fallback to sendError if writer fails
+                        response.sendError(401, "Unauthorized");
+                    }
                 })
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                // Dev-only: allow password reset via secret token
+                .requestMatchers(HttpMethod.POST, "/api/auth/admin/reset-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/pharmacies", "/api/pharmacies/**", "/api/medicaments", "/api/medicaments/**").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
