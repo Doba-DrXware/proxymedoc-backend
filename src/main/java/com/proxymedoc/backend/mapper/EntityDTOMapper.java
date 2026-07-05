@@ -52,7 +52,7 @@ public class EntityDTOMapper {
         p.setHoraires(dto.getHoraires());
         p.setEstDeGarde(dto.getEstDeGarde());
         p.setNumeroLicence(dto.getNumeroLicence());
-        p.setEstActif(dto.getEstActif());
+        
         p.setScoreIa(dto.getScoreIa());
         p.setContact(dto.getContact());
         return p;
@@ -71,7 +71,7 @@ public class EntityDTOMapper {
         dto.setHoraires(p.getHoraires());
         dto.setEstDeGarde(p.getEstDeGarde());
         dto.setNumeroLicence(p.getNumeroLicence());
-        dto.setEstActif(p.getEstActif());
+        
         dto.setScoreIa(p.getScoreIa());
         dto.setContact(p.getContact());
         return dto;

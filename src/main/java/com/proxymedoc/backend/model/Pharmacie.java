@@ -33,7 +33,7 @@ public class Pharmacie {
     @Column(length = 200)
     private String numeroLicence;
 
-    private Boolean estActif;
+    
 
     @Column(length = 1000)
     private String photo1Url;
@@ -44,11 +44,11 @@ public class Pharmacie {
     @Column(length = 1000)
     private String photo3Url;
 
-    @Column(length = 1000)
-    private String fichierUrl;
+    @Column(length = 1000, name = "fichier_rc")
+    private String fichierRc;
 
-    @Column(length = 1000)
-    private String documentLegalUrl;
+    @Column(length = 1000, name = "agrement_minsante")
+    private String agrementMinsante;
 
     @Column(columnDefinition = "TEXT")
     private String commentairePharmacie;
@@ -92,18 +92,17 @@ public class Pharmacie {
     public void setEstDeGarde(Boolean estDeGarde) { this.estDeGarde = estDeGarde; }
     public String getNumeroLicence() { return numeroLicence; }
     public void setNumeroLicence(String numeroLicence) { this.numeroLicence = numeroLicence; }
-    public Boolean getEstActif() { return estActif; }
-    public void setEstActif(Boolean estActif) { this.estActif = estActif; }
+    
     public String getPhoto1Url() { return photo1Url; }
     public void setPhoto1Url(String photo1Url) { this.photo1Url = photo1Url; }
     public String getPhoto2Url() { return photo2Url; }
     public void setPhoto2Url(String photo2Url) { this.photo2Url = photo2Url; }
     public String getPhoto3Url() { return photo3Url; }
     public void setPhoto3Url(String photo3Url) { this.photo3Url = photo3Url; }
-    public String getFichierUrl() { return fichierUrl; }
-    public void setFichierUrl(String fichierUrl) { this.fichierUrl = fichierUrl; }
-    public String getDocumentLegalUrl() { return documentLegalUrl; }
-    public void setDocumentLegalUrl(String documentLegalUrl) { this.documentLegalUrl = documentLegalUrl; }
+    public String getFichierRc() { return fichierRc; }
+    public void setFichierRc(String fichierRc) { this.fichierRc = fichierRc; }
+    public String getAgrementMinsante() { return agrementMinsante; }
+    public void setAgrementMinsante(String agrementMinsante) { this.agrementMinsante = agrementMinsante; }
     public String getCommentairePharmacie() { return commentairePharmacie; }
     public void setCommentairePharmacie(String commentairePharmacie) { this.commentairePharmacie = commentairePharmacie; }
     public Integer getScoreIa() { return scoreIa; }

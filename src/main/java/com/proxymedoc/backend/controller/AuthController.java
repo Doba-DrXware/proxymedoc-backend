@@ -55,21 +55,23 @@ public class AuthController {
     @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Transactional
     public ResponseEntity<?> registerJson(@RequestBody Map<String, Object> payload) {
-        return registerInternal(payload, null, null);
+        return registerInternal(payload, null, null, null);
     }
 
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
     public ResponseEntity<?> registerMultipart(@RequestParam Map<String, String> formData,
-                                               @RequestParam(value = "legalDocs", required = false) List<MultipartFile> legalDocs,
+                                               @RequestParam(value = "agrementMinsante", required = false) MultipartFile agrementMinsante,
+                                               @RequestParam(value = "fichierRc", required = false) MultipartFile fichierRc,
                                                @RequestParam(value = "pharmacyImages", required = false) List<MultipartFile> pharmacyImages) {
         Map<String, Object> payload = new java.util.HashMap<>();
         formData.forEach(payload::put);
-        return registerInternal(payload, legalDocs, pharmacyImages);
+        return registerInternal(payload, agrementMinsante, fichierRc, pharmacyImages);
     }
 
     private ResponseEntity<?> registerInternal(Map<String, Object> requestPayload,
-                                               List<MultipartFile> legalDocs,
+                                               MultipartFile agrementMinsante,
+                                               MultipartFile fichierRc,
                                                List<MultipartFile> pharmacyImages) {
         String role = String.valueOf(requestPayload.getOrDefault("role", "patient"));
         String nom = ((String) requestPayload.getOrDefault("nom", requestPayload.getOrDefault("name", ""))).trim();
@@ -132,24 +134,23 @@ public class AuthController {
                 }
             }
 
-            List<String> documentUrls = new ArrayList<>();
-            if (legalDocs != null) {
-                for (MultipartFile file : legalDocs) {
-                    if (file != null && !file.isEmpty()) {
-                        try {
-                            documentUrls.add(storeUploadedFile(file, "documents"));
-                        } catch (IOException e) {
-                            // Log exception for debugging
-                            e.printStackTrace();
-                            String hint = "Vérifiez que le fichier est accessible localement (évitez les dossiers OneDrive/Drive synchronisés) et réessayez.";
-                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’un document légal. " + hint));
-                        }
-                    }
+            if (agrementMinsante != null && !agrementMinsante.isEmpty()) {
+                try {
+                    ph.setAgrementMinsante(storeUploadedFile(agrementMinsante, "documents"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    String hint = "Vérifiez que le fichier est accessible localement (évitez les dossiers OneDrive/Drive synchronisés) et réessayez.";
+                    return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage de l’agrément. " + hint));
                 }
             }
-            if (!documentUrls.isEmpty()) {
-                ph.setDocumentLegalUrl(documentUrls.get(0));
-                ph.setFichierUrl(documentUrls.size() > 1 ? documentUrls.get(1) : documentUrls.get(0));
+            if (fichierRc != null && !fichierRc.isEmpty()) {
+                try {
+                    ph.setFichierRc(storeUploadedFile(fichierRc, "documents"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    String hint = "Vérifiez que le fichier est accessible localement (évitez les dossiers OneDrive/Drive synchronisés) et réessayez.";
+                    return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage du fichier RC. " + hint));
+                }
             }
 
             List<String> imageUrls = new ArrayList<>();
@@ -191,9 +192,10 @@ public class AuthController {
         JwtAuthenticationResponse response = new JwtAuthenticationResponse(token, savedUser.getId(), savedUser.getEmail(), savedUser.getRole().name());
 
         Map<String, Object> pharmacyInfo = new java.util.HashMap<>();
-        if (savedUser instanceof Pharmacien pharmacist && pharmacist.getPharmacie() != null) {
+            if (savedUser instanceof Pharmacien pharmacist && pharmacist.getPharmacie() != null) {
             Pharmacie pharmacy = pharmacist.getPharmacie();
-            pharmacyInfo.put("documentLegalUrl", pharmacy.getDocumentLegalUrl());
+            pharmacyInfo.put("agrementMinsante", pharmacy.getAgrementMinsante());
+            pharmacyInfo.put("fichierRc", pharmacy.getFichierRc());
             pharmacyInfo.put("photo1Url", pharmacy.getPhoto1Url());
             pharmacyInfo.put("photo2Url", pharmacy.getPhoto2Url());
             pharmacyInfo.put("photo3Url", pharmacy.getPhoto3Url());

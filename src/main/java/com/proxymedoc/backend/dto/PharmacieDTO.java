@@ -27,7 +27,6 @@ public class PharmacieDTO {
     private String horaires;
     private Boolean estDeGarde;
     private String numeroLicence;
-    private Boolean estActif;
     private Integer scoreIa;
     private String contact;
 
@@ -53,8 +52,7 @@ public class PharmacieDTO {
     public void setEstDeGarde(Boolean estDeGarde) { this.estDeGarde = estDeGarde; }
     public String getNumeroLicence() { return numeroLicence; }
     public void setNumeroLicence(String numeroLicence) { this.numeroLicence = numeroLicence; }
-    public Boolean getEstActif() { return estActif; }
-    public void setEstActif(Boolean estActif) { this.estActif = estActif; }
+    
     public Integer getScoreIa() { return scoreIa; }
     public void setScoreIa(Integer scoreIa) { this.scoreIa = scoreIa; }
     public String getContact() { return contact; }
