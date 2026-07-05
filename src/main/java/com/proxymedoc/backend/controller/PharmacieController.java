@@ -261,13 +261,20 @@ public class PharmacieController {
                     continue;
                 }
                 Map<String, Object> medPayload = new HashMap<>();
+                medPayload.put("id", medicament.getId());
                 medPayload.put("nom", medicament.getDenomination());
+                medPayload.put("denomination", medicament.getDenomination());
                 medPayload.put("prix", medicament.getPrixUnitaire());
                 medPayload.put("stock", stock.getQuantiteDisponible());
                 medPayload.put("description", medicament.getDescription());
                 medPayload.put("dispo", stock.getQuantiteDisponible() != null && stock.getQuantiteDisponible() > 0);
                 medPayload.put("image", medicament.getImageUrl());
+                medPayload.put("imageUrl", medicament.getImageUrl());
+                medPayload.put("noticeUrl", medicament.getNoticeUrl());
                 medPayload.put("categorie", medicament.getCategorie());
+                medPayload.put("formeGalenique", medicament.getFormeGalenique());
+                medPayload.put("dosage", medicament.getDosage());
+                medPayload.put("exigeOrdonnance", medicament.getExigeOrdonnance());
                 meds.add(medPayload);
             }
         }

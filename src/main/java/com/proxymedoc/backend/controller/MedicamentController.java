@@ -3,7 +3,13 @@ package com.proxymedoc.backend.controller;
 import com.proxymedoc.backend.dto.MedicamentDTO;
 import com.proxymedoc.backend.mapper.EntityDTOMapper;
 import com.proxymedoc.backend.model.Medicament;
+import com.proxymedoc.backend.model.Pharmacie;
+import com.proxymedoc.backend.model.Pharmacien;
+import com.proxymedoc.backend.model.Stock;
+import com.proxymedoc.backend.model.Utilisateur;
 import com.proxymedoc.backend.repository.MedicamentRepository;
+import com.proxymedoc.backend.repository.StockRepository;
+import com.proxymedoc.backend.security.SecurityUtil;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,11 +30,15 @@ import java.util.stream.Collectors;
 public class MedicamentController {
 
     private final MedicamentRepository medicamentRepository;
+    private final StockRepository stockRepository;
     private final EntityDTOMapper mapper;
+    private final SecurityUtil securityUtil;
 
-    public MedicamentController(MedicamentRepository medicamentRepository, EntityDTOMapper mapper) {
+    public MedicamentController(MedicamentRepository medicamentRepository, StockRepository stockRepository, EntityDTOMapper mapper, SecurityUtil securityUtil) {
         this.medicamentRepository = medicamentRepository;
+        this.stockRepository = stockRepository;
         this.mapper = mapper;
+        this.securityUtil = securityUtil;
     }
 
     @GetMapping
@@ -52,6 +62,28 @@ public class MedicamentController {
     public ResponseEntity<?> create(@Valid @RequestBody MedicamentDTO dto) {
         Medicament m = mapper.toMedicament(dto);
         Medicament saved = medicamentRepository.save(m);
+        createStockForCurrentPharmacy(saved, null);
+        return ResponseEntity.ok(mapper.toMedicamentDTO(saved));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @Valid @RequestBody MedicamentDTO dto) {
+        Medicament existing = medicamentRepository.findById(id).orElse(null);
+        if (existing == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        existing.setDenomination(dto.getDenomination());
+        existing.setCategorie(dto.getCategorie());
+        existing.setDescription(dto.getDescription());
+        existing.setPrixUnitaire(dto.getPrixUnitaire());
+        existing.setFormeGalenique(dto.getFormeGalenique());
+        existing.setDosage(dto.getDosage());
+        existing.setExigeOrdonnance(dto.getExigeOrdonnance());
+        existing.setImageUrl(dto.getImageUrl());
+        existing.setNoticeUrl(dto.getNoticeUrl());
+
+        Medicament saved = medicamentRepository.save(existing);
         return ResponseEntity.ok(mapper.toMedicamentDTO(saved));
     }
 
@@ -64,6 +96,7 @@ public class MedicamentController {
             @RequestParam(value = "formeGalenique", required = false) String formeGalenique,
             @RequestParam(value = "dosage", required = false) String dosage,
             @RequestParam(value = "exigeOrdonnance", required = false) Boolean exigeOrdonnance,
+            @RequestParam(value = "stock", required = false) Integer stock,
             @RequestParam(value = "photo", required = false) MultipartFile photo,
             @RequestParam(value = "notice", required = false) MultipartFile notice) throws IOException {
 
@@ -84,8 +117,84 @@ public class MedicamentController {
         }
 
         Medicament saved = medicamentRepository.save(medicament);
+        createStockForCurrentPharmacy(saved, stock);
         return ResponseEntity.ok(mapper.toMedicamentDTO(saved));
     }
+
+    private void createStockForCurrentPharmacy(Medicament medicament, Integer quantity) {
+        Utilisateur currentUser = securityUtil.getCurrentUser();
+        if (currentUser instanceof Pharmacien pharmacist && pharmacist.getPharmacie() != null) {
+            Pharmacie pharmacy = pharmacist.getPharmacie();
+            Stock stock = new Stock();
+            stock.setMedicament(medicament);
+            stock.setPharmacie(pharmacy);
+            stock.setQuantiteDisponible(quantity != null ? quantity : 0);
+            stock.setSeuilAlerte(0);
+            stock.setDateMAJ(java.time.LocalDate.now());
+            stockRepository.save(stock);
+        }
+    }
+
+    @PutMapping("/{medicamentId}/stock")
+    public ResponseEntity<?> updateStock(@PathVariable Long medicamentId, @RequestBody StockUpdateRequest request) {
+        Utilisateur currentUser = securityUtil.getCurrentUser();
+        if (!(currentUser instanceof Pharmacien pharmacist) || pharmacist.getPharmacie() == null) {
+            return ResponseEntity.status(401).body(java.util.Map.of("message", "Non authentifié"));
+        }
+
+        Medicament medicament = medicamentRepository.findById(medicamentId).orElse(null);
+        if (medicament == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Stock stock = stockRepository.findAll().stream()
+                .filter(item -> item.getMedicament() != null && item.getMedicament().getId().equals(medicamentId))
+                .filter(item -> item.getPharmacie() != null && item.getPharmacie().getId().equals(pharmacist.getPharmacie().getId()))
+                .findFirst()
+                .orElseGet(() -> {
+                    Stock newStock = new Stock();
+                    newStock.setMedicament(medicament);
+                    newStock.setPharmacie(pharmacist.getPharmacie());
+                    return newStock;
+                });
+
+        if (request != null && request.quantiteDisponible() != null) {
+            stock.setQuantiteDisponible(request.quantiteDisponible());
+        }
+        stock.setSeuilAlerte(0);
+        stock.setDateMAJ(java.time.LocalDate.now());
+        stockRepository.save(stock);
+
+        return ResponseEntity.ok(java.util.Map.of("success", true, "stock", stock.getQuantiteDisponible()));
+    }
+
+    @DeleteMapping("/{medicamentId}/stock")
+    public ResponseEntity<?> deleteStock(@PathVariable Long medicamentId) {
+        Utilisateur currentUser = securityUtil.getCurrentUser();
+        if (!(currentUser instanceof Pharmacien pharmacist) || pharmacist.getPharmacie() == null) {
+            return ResponseEntity.status(401).body(java.util.Map.of("message", "Non authentifié"));
+        }
+
+        Medicament medicament = medicamentRepository.findById(medicamentId).orElse(null);
+        if (medicament == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Stock stock = stockRepository.findAll().stream()
+                .filter(item -> item.getMedicament() != null && item.getMedicament().getId().equals(medicamentId))
+                .filter(item -> item.getPharmacie() != null && item.getPharmacie().getId().equals(pharmacist.getPharmacie().getId()))
+                .findFirst()
+                .orElse(null);
+
+        if (stock == null) {
+            return ResponseEntity.status(404).body(java.util.Map.of("message", "Stock introuvable pour ce médicament et cette pharmacie."));
+        }
+
+        stockRepository.delete(stock);
+        return ResponseEntity.noContent().build();
+    }
+
+    public record StockUpdateRequest(Integer quantiteDisponible) {}
 
     private String storeFile(MultipartFile file, String folderName) throws IOException {
         try {
