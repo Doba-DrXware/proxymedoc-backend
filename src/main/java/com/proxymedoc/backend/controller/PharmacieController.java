@@ -5,6 +5,7 @@ import com.proxymedoc.backend.mapper.EntityDTOMapper;
 import com.proxymedoc.backend.model.Medicament;
 import com.proxymedoc.backend.model.Pharmacie;
 import com.proxymedoc.backend.model.Pharmacien;
+import com.proxymedoc.backend.model.StatutPharmacie;
 import com.proxymedoc.backend.model.Stock;
 import com.proxymedoc.backend.model.Utilisateur;
 import com.proxymedoc.backend.security.SecurityUtil;
@@ -110,6 +111,37 @@ public class PharmacieController {
     public ResponseEntity<List<Map<String, Object>>> listWithStocks() {
         List<Map<String, Object>> result = pharmacieService.findAll().stream().map(this::toFrontendPayload).collect(Collectors.toList());
         return ResponseEntity.ok(result);
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        Pharmacie pharmacy = pharmacieService.findById(id);
+        if (pharmacy == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Object statutValue = payload.get("statut");
+        if (statutValue == null) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Le statut est requis"));
+        }
+
+        String statut = String.valueOf(statutValue).trim().toUpperCase(Locale.ROOT);
+        switch (statut) {
+            case "VALIDEE" -> pharmacy.setStatut(StatutPharmacie.VALIDEE);
+            case "SUSPENDUE" -> pharmacy.setStatut(StatutPharmacie.SUSPENDUE);
+            case "REJETEE" -> pharmacy.setStatut(StatutPharmacie.REJETEE);
+            case "EN_ATTENTE" -> pharmacy.setStatut(StatutPharmacie.EN_ATTENTE);
+            default -> {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Statut invalide"));
+            }
+        }
+
+        Pharmacie saved = pharmacieService.save(pharmacy);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Statut mis à jour",
+                "pharmacy", toFrontendPayload(saved)
+        ));
     }
 
     @GetMapping("/me")
@@ -236,6 +268,7 @@ public class PharmacieController {
         payload.put("statut", p.getStatut() == null ? "attente" : switch (p.getStatut()) {
             case VALIDEE -> "active";
             case SUSPENDUE -> "suspendue";
+            case REJETEE -> "rejetee";
             default -> "attente";
         });
         payload.put("score_ia", p.getScoreIa() != null ? p.getScoreIa() : 0);

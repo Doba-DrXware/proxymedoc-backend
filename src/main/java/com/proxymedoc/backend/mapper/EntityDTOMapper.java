@@ -71,6 +71,11 @@ public class EntityDTOMapper {
         dto.setHoraires(p.getHoraires());
         dto.setEstDeGarde(p.getEstDeGarde());
         dto.setNumeroLicence(p.getNumeroLicence());
+        dto.setPhoto1Url(p.getPhoto1Url());
+        dto.setPhoto2Url(p.getPhoto2Url());
+        dto.setPhoto3Url(p.getPhoto3Url());
+        dto.setFichierRc(p.getFichierRc());
+        dto.setAgrementMinsante(p.getAgrementMinsante());
         
         dto.setScoreIa(p.getScoreIa());
         dto.setContact(p.getContact());

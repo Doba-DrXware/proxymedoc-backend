@@ -29,6 +29,11 @@ public class PharmacieDTO {
     private String numeroLicence;
     private Integer scoreIa;
     private String contact;
+    private String photo1Url;
+    private String photo2Url;
+    private String photo3Url;
+    private String fichierRc;
+    private String agrementMinsante;
 
     public PharmacieDTO() {}
 
@@ -57,4 +62,14 @@ public class PharmacieDTO {
     public void setScoreIa(Integer scoreIa) { this.scoreIa = scoreIa; }
     public String getContact() { return contact; }
     public void setContact(String contact) { this.contact = contact; }
+    public String getPhoto1Url() { return photo1Url; }
+    public void setPhoto1Url(String photo1Url) { this.photo1Url = photo1Url; }
+    public String getPhoto2Url() { return photo2Url; }
+    public void setPhoto2Url(String photo2Url) { this.photo2Url = photo2Url; }
+    public String getPhoto3Url() { return photo3Url; }
+    public void setPhoto3Url(String photo3Url) { this.photo3Url = photo3Url; }
+    public String getFichierRc() { return fichierRc; }
+    public void setFichierRc(String fichierRc) { this.fichierRc = fichierRc; }
+    public String getAgrementMinsante() { return agrementMinsante; }
+    public void setAgrementMinsante(String agrementMinsante) { this.agrementMinsante = agrementMinsante; }
 }
