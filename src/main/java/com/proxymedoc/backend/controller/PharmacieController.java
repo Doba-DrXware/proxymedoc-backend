@@ -211,8 +211,8 @@ public class PharmacieController {
         return pharmacie.getStocks().stream().anyMatch(stock -> {
             Medicament medicament = stock.getMedicament();
             return medicament != null
-                    && medicament.getNom() != null
-                    && normalize(medicament.getNom()).contains(normalizedQuery);
+                    && medicament.getDenomination() != null
+                    && normalize(medicament.getDenomination()).contains(normalizedQuery);
         });
     }
 
@@ -261,7 +261,7 @@ public class PharmacieController {
                     continue;
                 }
                 Map<String, Object> medPayload = new HashMap<>();
-                medPayload.put("nom", medicament.getNom());
+                medPayload.put("nom", medicament.getDenomination());
                 medPayload.put("prix", medicament.getPrixUnitaire());
                 medPayload.put("stock", stock.getQuantiteDisponible());
                 medPayload.put("description", medicament.getDescription());

@@ -11,8 +11,6 @@ public class Medicament {
     private Long id;
 
     @Column(nullable = false)
-    private String nom;
-
     private String denomination;
     private String categorie;
 
@@ -33,8 +31,6 @@ public class Medicament {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getNom() { return nom; }
-    public void setNom(String nom) { this.nom = nom; }
     public String getDenomination() { return denomination; }
     public void setDenomination(String denomination) { this.denomination = denomination; }
     public String getCategorie() { return categorie; }

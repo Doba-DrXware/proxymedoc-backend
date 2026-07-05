@@ -7,9 +7,7 @@ import jakarta.validation.constraints.Min;
 public class MedicamentDTO {
     private Long id;
 
-    @NotBlank(message = "Le nom du médicament est requis")
-    private String nom;
-
+    @NotBlank(message = "La dénomination du médicament est requise")
     private String denomination;
     private String categorie;
     private String description;
@@ -28,8 +26,6 @@ public class MedicamentDTO {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getNom() { return nom; }
-    public void setNom(String nom) { this.nom = nom; }
     public String getDenomination() { return denomination; }
     public void setDenomination(String denomination) { this.denomination = denomination; }
     public String getCategorie() { return categorie; }

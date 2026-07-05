@@ -11,7 +11,6 @@ public class EntityDTOMapper {
         if (dto == null) return null;
         Medicament m = new Medicament();
         m.setId(dto.getId());
-        m.setNom(dto.getNom());
         m.setDenomination(dto.getDenomination());
         m.setCategorie(dto.getCategorie());
         m.setDescription(dto.getDescription());
@@ -28,7 +27,6 @@ public class EntityDTOMapper {
         if (m == null) return null;
         MedicamentDTO dto = new MedicamentDTO();
         dto.setId(m.getId());
-        dto.setNom(m.getNom());
         dto.setDenomination(m.getDenomination());
         dto.setCategorie(m.getCategorie());
         dto.setDescription(m.getDescription());

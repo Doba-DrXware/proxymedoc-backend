@@ -27,7 +27,7 @@ public class DataLoader implements CommandLineRunner {
         if (pharmacieRepository.count() > 0) return; // don't seed twice
 
         Medicament amox250 = new Medicament();
-        amox250.setNom("Amoxicilline 250mg");
+        amox250.setDenomination("Amoxicilline 250mg");
         amox250.setDenomination("Amoxicilline");
         amox250.setCategorie("antibiotique");
         amox250.setPrixUnitaire(900.0);
@@ -35,7 +35,7 @@ public class DataLoader implements CommandLineRunner {
         medicamentRepository.save(amox250);
 
         Medicament parac = new Medicament();
-        parac.setNom("Paracétamol 500mg");
+        parac.setDenomination("Paracétamol 500mg");
         parac.setDenomination("Paracétamol");
         parac.setCategorie("analgesique");
         parac.setPrixUnitaire(250.0);

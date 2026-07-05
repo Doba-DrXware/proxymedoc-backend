@@ -1,0 +1,1 @@
+ALTER TABLE medicament DROP COLUMN IF EXISTS nom;
