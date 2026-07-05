@@ -48,10 +48,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
-                .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                // Dev-only: allow password reset via secret token
-                .requestMatchers(HttpMethod.POST, "/api/auth/admin/reset-password").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/register/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/login/").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/admin/reset-password", "/api/auth/admin/reset-password/").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/pharmacies", "/api/pharmacies/**", "/api/medicaments", "/api/medicaments/**").permitAll()
+                .requestMatchers("/error").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
             );

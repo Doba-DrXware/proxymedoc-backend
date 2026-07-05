@@ -12,12 +12,25 @@ import com.proxymedoc.backend.security.JwtAuthenticationResponse;
 import com.proxymedoc.backend.security.JwtTokenProvider;
 import com.proxymedoc.backend.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -39,19 +52,47 @@ public class AuthController {
         this.securityUtil = securityUtil;
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, Object> payload) {
-        String role = (String) payload.getOrDefault("role", "patient");
-        String name = ((String) payload.getOrDefault("name", "")).trim();
-        String email = ((String) payload.getOrDefault("email", "")).trim();
-        String password = ((String) payload.getOrDefault("password", "demo1234")).trim();
+    @PostMapping(value = "/register", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Transactional
+    public ResponseEntity<?> registerJson(@RequestBody Map<String, Object> payload) {
+        return registerInternal(payload, null, null);
+    }
+
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Transactional
+    public ResponseEntity<?> registerMultipart(@RequestParam Map<String, String> formData,
+                                               @RequestParam(value = "legalDocs", required = false) List<MultipartFile> legalDocs,
+                                               @RequestParam(value = "pharmacyImages", required = false) List<MultipartFile> pharmacyImages) {
+        Map<String, Object> payload = new java.util.HashMap<>();
+        formData.forEach(payload::put);
+        return registerInternal(payload, legalDocs, pharmacyImages);
+    }
+
+    private ResponseEntity<?> registerInternal(Map<String, Object> requestPayload,
+                                               List<MultipartFile> legalDocs,
+                                               List<MultipartFile> pharmacyImages) {
+        String role = String.valueOf(requestPayload.getOrDefault("role", "patient"));
+        String nom = ((String) requestPayload.getOrDefault("nom", requestPayload.getOrDefault("name", ""))).trim();
+        String prenom = ((String) requestPayload.getOrDefault("prenom", "")).trim();
+        String email = ((String) requestPayload.getOrDefault("email", "")).trim();
+        String password = ((String) requestPayload.getOrDefault("password", "demo1234")).trim();
+        String adresse = ((String) requestPayload.getOrDefault("adresse", "")).trim();
+        String phone = ((String) requestPayload.getOrDefault("phone", "")).trim();
+        String pharmacyName = ((String) requestPayload.getOrDefault("pharmacyName", (prenom + " " + nom).trim())).trim();
+        String pharmacyPhone = ((String) requestPayload.getOrDefault("pharmacyPhone", phone)).trim();
+        String licence = ((String) requestPayload.getOrDefault("licence", "")).trim();
+        String latitudeValue = String.valueOf(requestPayload.getOrDefault("latitude", "")).trim();
+        String longitudeValue = String.valueOf(requestPayload.getOrDefault("longitude", "")).trim();
+        String horaires = ((String) requestPayload.getOrDefault("horaires", "")).trim();
+        boolean estDeGarde = Boolean.parseBoolean(String.valueOf(requestPayload.getOrDefault("estDeGarde", false)));
+        String contact = ((String) requestPayload.getOrDefault("contact", "")).trim();
 
         if (password.isEmpty()) {
             password = "demo1234";
         }
 
-        if (name.isEmpty() || email.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Nom ou email manquant"));
+        if ((nom + " " + prenom).trim().isEmpty() || email.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Nom, prénom ou email manquant"));
         }
 
         if (utilisateurRepository.findByEmail(email).isPresent()) {
@@ -62,47 +103,154 @@ public class AuthController {
         if ("pharmacie".equalsIgnoreCase(role)) {
             Pharmacien pharm = new Pharmacien();
             pharm.setEmail(email);
-            pharm.setNom(name);
+            pharm.setNom(nom);
+            pharm.setPrenom(prenom);
             pharm.setPassword(passwordEncoder.encode(password));
-            pharm.setNumeroLicence((String) payload.getOrDefault("licence", null));
+            pharm.setNumeroLicence(licence.isEmpty() ? null : licence);
 
             Pharmacie ph = new Pharmacie();
-            ph.setNom(name);
-            ph.setAdresse((String) payload.getOrDefault("adresse", ""));
+            ph.setNom(pharmacyName.isEmpty() ? (prenom + " " + nom).trim() : pharmacyName);
+            ph.setAdresse(adresse);
             ph.setStatut(StatutPharmacie.EN_ATTENTE);
-            ph.setTelephone((String) payload.getOrDefault("phone", ""));
-            ph.setNumeroLicence((String) payload.getOrDefault("licence", null));
-            pharmacieRepository.save(ph);
+            ph.setTelephone(pharmacyPhone.isEmpty() ? phone : pharmacyPhone);
+            ph.setNumeroLicence(licence.isEmpty() ? null : licence);
+            ph.setHoraires(normalizeHoursValue(horaires));
+            ph.setEstDeGarde(estDeGarde);
+            ph.setContact(contact.isEmpty() ? null : contact);
+            if (!latitudeValue.isEmpty()) {
+                try {
+                    ph.setLatitude(Double.parseDouble(latitudeValue));
+                } catch (NumberFormatException ignored) {
+                    // keep null if invalid
+                }
+            }
+            if (!longitudeValue.isEmpty()) {
+                try {
+                    ph.setLongitude(Double.parseDouble(longitudeValue));
+                } catch (NumberFormatException ignored) {
+                    // keep null if invalid
+                }
+            }
 
+            List<String> documentUrls = new ArrayList<>();
+            if (legalDocs != null) {
+                for (MultipartFile file : legalDocs) {
+                    if (file != null && !file.isEmpty()) {
+                        try {
+                            documentUrls.add(storeUploadedFile(file, "documents"));
+                        } catch (IOException e) {
+                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’un document légal"));
+                        }
+                    }
+                }
+            }
+            if (!documentUrls.isEmpty()) {
+                ph.setDocumentLegalUrl(documentUrls.get(0));
+                ph.setFichierUrl(documentUrls.size() > 1 ? documentUrls.get(1) : documentUrls.get(0));
+            }
+
+            List<String> imageUrls = new ArrayList<>();
+            if (pharmacyImages != null) {
+                for (MultipartFile file : pharmacyImages) {
+                    if (file != null && !file.isEmpty()) {
+                        try {
+                            imageUrls.add(storeUploadedFile(file, "images"));
+                        } catch (IOException e) {
+                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’une image"));
+                        }
+                    }
+                }
+            }
+            if (!imageUrls.isEmpty()) {
+                ph.setPhoto1Url(imageUrls.get(0));
+                if (imageUrls.size() > 1) ph.setPhoto2Url(imageUrls.get(1));
+                if (imageUrls.size() > 2) ph.setPhoto3Url(imageUrls.get(2));
+            }
+
+            pharmacieRepository.save(ph);
             pharm.setPharmacie(ph);
             user = pharm;
         } else {
             Patient p = new Patient();
             p.setEmail(email);
-            p.setNom(name);
+            p.setNom(nom);
+            p.setPrenom(prenom);
             p.setPassword(passwordEncoder.encode(password));
             user = p;
         }
 
         Utilisateur savedUser = utilisateurRepository.save(user);
-        
-        // Generate JWT token
+
         String token = tokenProvider.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole().name());
-        
         JwtAuthenticationResponse response = new JwtAuthenticationResponse(token, savedUser.getId(), savedUser.getEmail(), savedUser.getRole().name());
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "message", "User registered successfully",
-            "token", response.getToken(),
-            "type", response.getType(),
-            "user", Map.of(
-                "id", savedUser.getId(),
-                "role", savedUser.getRole().name().toLowerCase(),
-                "name", savedUser.getNom(),
-                "email", savedUser.getEmail()
-            )
+        Map<String, Object> pharmacyInfo = new java.util.HashMap<>();
+        if (savedUser instanceof Pharmacien pharmacist && pharmacist.getPharmacie() != null) {
+            Pharmacie pharmacy = pharmacist.getPharmacie();
+            pharmacyInfo.put("documentLegalUrl", pharmacy.getDocumentLegalUrl());
+            pharmacyInfo.put("photo1Url", pharmacy.getPhoto1Url());
+            pharmacyInfo.put("photo2Url", pharmacy.getPhoto2Url());
+            pharmacyInfo.put("photo3Url", pharmacy.getPhoto3Url());
+        }
+
+        Map<String, Object> responseBody = new java.util.HashMap<>();
+        responseBody.put("success", true);
+        responseBody.put("message", "User registered successfully");
+        responseBody.put("token", response.getToken());
+        responseBody.put("type", response.getType());
+        responseBody.put("user", Map.of(
+            "id", savedUser.getId(),
+            "role", savedUser.getRole().name().toLowerCase(),
+            "name", buildDisplayName(savedUser.getNom(), savedUser.getPrenom()),
+            "email", savedUser.getEmail()
         ));
+        if (!pharmacyInfo.isEmpty()) {
+            responseBody.put("pharmacy", pharmacyInfo);
+        }
+
+        return ResponseEntity.ok(responseBody);
+    }
+
+    private String buildDisplayName(String nom, String prenom) {
+        String fullName = String.join(" ", java.util.stream.Stream.of(prenom, nom)
+            .filter(value -> value != null && !value.isBlank())
+            .toList());
+        return fullName.isBlank() ? "Utilisateur" : fullName;
+    }
+
+    private String normalizeHoursValue(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) {
+            return null;
+        }
+
+        String trimmed = rawValue.trim();
+        if (trimmed.startsWith("{")) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                Map<String, Map<String, String>> parsed = mapper.readValue(trimmed, new TypeReference<>() {});
+                if (parsed != null && !parsed.isEmpty()) {
+                    return mapper.writeValueAsString(parsed);
+                }
+            } catch (Exception ignored) {
+                // keep original string if parsing fails
+            }
+        }
+
+        return trimmed;
+    }
+
+    private String storeUploadedFile(MultipartFile file, String folder) throws IOException {
+        String originalName = file.getOriginalFilename();
+        String extension = "";
+        if (originalName != null && originalName.contains(".")) {
+            extension = originalName.substring(originalName.lastIndexOf('.'));
+        }
+        Path uploadDir = Paths.get("uploads", "pharmacies", folder).toAbsolutePath().normalize();
+        Files.createDirectories(uploadDir);
+        String storedName = UUID.randomUUID() + extension;
+        Path target = uploadDir.resolve(storedName);
+        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        return "/uploads/pharmacies/" + folder + "/" + storedName;
     }
 
     @GetMapping("/me")

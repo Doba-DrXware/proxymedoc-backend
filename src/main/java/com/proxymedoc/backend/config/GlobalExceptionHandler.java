@@ -28,4 +28,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleIllegalArgumentException(IllegalArgumentException ex) {
         return new ResponseEntity<>(Map.of("success", false, "message", ex.getMessage()), HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleAllExceptions(Exception ex) {
+        ex.printStackTrace();
+        return new ResponseEntity<>(Map.of("success", false, "message", "Erreur serveur interne"), HttpStatus.INTERNAL_SERVER_ERROR);
+    }
 }

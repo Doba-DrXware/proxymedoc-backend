@@ -28,3 +28,7 @@ application-dev.properties
 # Temporary files
 *.tmp
 *.swp
+
+# Uploads non versionés
+uploads/
+uploads/**
