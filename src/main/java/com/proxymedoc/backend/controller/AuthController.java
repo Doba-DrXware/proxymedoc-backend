@@ -139,7 +139,10 @@ public class AuthController {
                         try {
                             documentUrls.add(storeUploadedFile(file, "documents"));
                         } catch (IOException e) {
-                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’un document légal"));
+                            // Log exception for debugging
+                            e.printStackTrace();
+                            String hint = "Vérifiez que le fichier est accessible localement (évitez les dossiers OneDrive/Drive synchronisés) et réessayez.";
+                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’un document légal. " + hint));
                         }
                     }
                 }
@@ -156,7 +159,10 @@ public class AuthController {
                         try {
                             imageUrls.add(storeUploadedFile(file, "images"));
                         } catch (IOException e) {
-                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’une image"));
+                            // Log exception for debugging
+                            e.printStackTrace();
+                            String hint = "Vérifiez que le fichier est accessible localement (évitez les dossiers OneDrive/Drive synchronisés) et réessayez.";
+                            return ResponseEntity.status(500).body(Map.of("success", false, "message", "Échec du stockage d’une image. " + hint));
                         }
                     }
                 }
@@ -240,17 +246,25 @@ public class AuthController {
     }
 
     private String storeUploadedFile(MultipartFile file, String folder) throws IOException {
-        String originalName = file.getOriginalFilename();
-        String extension = "";
-        if (originalName != null && originalName.contains(".")) {
-            extension = originalName.substring(originalName.lastIndexOf('.'));
+        try {
+            String originalName = file.getOriginalFilename();
+            String extension = "";
+            if (originalName != null && originalName.contains(".")) {
+                extension = originalName.substring(originalName.lastIndexOf('.'));
+            }
+            Path uploadDir = Paths.get("uploads", "pharmacies", folder).toAbsolutePath().normalize();
+            Files.createDirectories(uploadDir);
+            String storedName = UUID.randomUUID() + extension;
+            Path target = uploadDir.resolve(storedName);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            return "/uploads/pharmacies/" + folder + "/" + storedName;
+        } catch (IOException e) {
+            // IO problems propagate as-is
+            throw e;
+        } catch (Exception e) {
+            // Convert any other runtime exception to IOException so caller can handle uniformly
+            throw new IOException("Failed to store uploaded file: " + e.getMessage(), e);
         }
-        Path uploadDir = Paths.get("uploads", "pharmacies", folder).toAbsolutePath().normalize();
-        Files.createDirectories(uploadDir);
-        String storedName = UUID.randomUUID() + extension;
-        Path target = uploadDir.resolve(storedName);
-        Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-        return "/uploads/pharmacies/" + folder + "/" + storedName;
     }
 
     @GetMapping("/me")
