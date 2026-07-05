@@ -4,7 +4,10 @@ import com.proxymedoc.backend.dto.PharmacieDTO;
 import com.proxymedoc.backend.mapper.EntityDTOMapper;
 import com.proxymedoc.backend.model.Medicament;
 import com.proxymedoc.backend.model.Pharmacie;
+import com.proxymedoc.backend.model.Pharmacien;
 import com.proxymedoc.backend.model.Stock;
+import com.proxymedoc.backend.model.Utilisateur;
+import com.proxymedoc.backend.security.SecurityUtil;
 import com.proxymedoc.backend.service.PharmacieService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -25,10 +28,12 @@ public class PharmacieController {
 
     private final PharmacieService pharmacieService;
     private final EntityDTOMapper mapper;
+    private final SecurityUtil securityUtil;
 
-    public PharmacieController(PharmacieService pharmacieService, EntityDTOMapper mapper) {
+    public PharmacieController(PharmacieService pharmacieService, EntityDTOMapper mapper, SecurityUtil securityUtil) {
         this.pharmacieService = pharmacieService;
         this.mapper = mapper;
+        this.securityUtil = securityUtil;
     }
 
     @GetMapping
@@ -107,6 +112,78 @@ public class PharmacieController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyPharmacy() {
+        Utilisateur user = securityUtil.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Non authentifié"));
+        }
+
+        if (!(user instanceof Pharmacien pharmacist) || pharmacist.getPharmacie() == null) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "Aucune pharmacie associée à ce compte"));
+        }
+
+        return ResponseEntity.ok(toFrontendPayload(pharmacist.getPharmacie()));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<?> updateMyPharmacy(@RequestBody Map<String, Object> payload) {
+        Utilisateur user = securityUtil.getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "Non authentifié"));
+        }
+
+        if (!(user instanceof Pharmacien pharmacist) || pharmacist.getPharmacie() == null) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "Aucune pharmacie associée à ce compte"));
+        }
+
+        Pharmacie pharmacy = pharmacist.getPharmacie();
+
+        if (payload.containsKey("horaires")) {
+            Object horaires = payload.get("horaires");
+            pharmacy.setHoraires(horaires == null ? null : String.valueOf(horaires));
+        }
+
+        if (payload.containsKey("telephone")) {
+            Object telephone = payload.get("telephone");
+            pharmacy.setTelephone(telephone == null ? null : String.valueOf(telephone));
+        }
+
+        if (payload.containsKey("latitude")) {
+            Object latitude = payload.get("latitude");
+            if (latitude instanceof Number number) {
+                pharmacy.setLatitude(number.doubleValue());
+            } else if (latitude != null && !String.valueOf(latitude).isBlank()) {
+                pharmacy.setLatitude(Double.parseDouble(String.valueOf(latitude)));
+            }
+        }
+
+        if (payload.containsKey("longitude")) {
+            Object longitude = payload.get("longitude");
+            if (longitude instanceof Number number) {
+                pharmacy.setLongitude(number.doubleValue());
+            } else if (longitude != null && !String.valueOf(longitude).isBlank()) {
+                pharmacy.setLongitude(Double.parseDouble(String.valueOf(longitude)));
+            }
+        }
+
+        if (payload.containsKey("estDeGarde")) {
+            Object estDeGarde = payload.get("estDeGarde");
+            if (estDeGarde instanceof Boolean bool) {
+                pharmacy.setEstDeGarde(bool);
+            } else if (estDeGarde != null) {
+                pharmacy.setEstDeGarde(Boolean.parseBoolean(String.valueOf(estDeGarde)));
+            }
+        }
+
+        Pharmacie saved = pharmacieService.save(pharmacy);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Informations pharmacie mises à jour",
+            "pharmacy", toFrontendPayload(saved)
+        ));
+    }
+
     @GetMapping("/search")
     public ResponseEntity<List<Map<String, Object>>> searchPharmacies(
             @RequestParam(required = false) String q,
@@ -166,6 +243,15 @@ public class PharmacieController {
         payload.put("longitude", p.getLongitude());
         payload.put("contact", p.getContact());
         payload.put("licence", p.getNumeroLicence());
+        payload.put("photo1Url", p.getPhoto1Url());
+        payload.put("photo2Url", p.getPhoto2Url());
+        payload.put("photo3Url", p.getPhoto3Url());
+
+        List<String> imageUrls = new ArrayList<>();
+        if (p.getPhoto1Url() != null && !p.getPhoto1Url().isBlank()) imageUrls.add(p.getPhoto1Url());
+        if (p.getPhoto2Url() != null && !p.getPhoto2Url().isBlank()) imageUrls.add(p.getPhoto2Url());
+        if (p.getPhoto3Url() != null && !p.getPhoto3Url().isBlank()) imageUrls.add(p.getPhoto3Url());
+        payload.put("images", imageUrls);
 
         List<Map<String, Object>> meds = new ArrayList<>();
         if (p.getStocks() != null) {

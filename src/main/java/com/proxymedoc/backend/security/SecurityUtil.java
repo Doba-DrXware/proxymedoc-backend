@@ -3,6 +3,7 @@ package com.proxymedoc.backend.security;
 import com.proxymedoc.backend.model.Utilisateur;
 import com.proxymedoc.backend.repository.UtilisateurRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,12 @@ public class SecurityUtil {
      * Get current authenticated user's email from security context
      */
     public String getCurrentUserEmail() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
         if (principal instanceof String) {
             return (String) principal;
         }
@@ -41,7 +47,12 @@ public class SecurityUtil {
      * Get current user ID from request attributes (set by JWT filter)
      */
     public Long getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
         if (principal instanceof String) {
             Utilisateur user = utilisateurRepository.findByEmail((String) principal).orElse(null);
             if (user != null) {

@@ -52,7 +52,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/register/").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/login/").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/admin/reset-password", "/api/auth/admin/reset-password/").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/pharmacies", "/api/pharmacies/**", "/api/medicaments", "/api/medicaments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/pharmacies/me").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/pharmacies", "/api/pharmacies/{id}", "/api/pharmacies/search/name", "/api/pharmacies/search/nearby", "/api/pharmacies/validated", "/api/pharmacies/search", "/api/pharmacies/with-stocks", "/api/medicaments", "/api/medicaments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated()

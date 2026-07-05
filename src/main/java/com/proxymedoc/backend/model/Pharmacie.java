@@ -10,26 +10,52 @@ public class Pharmacie {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(length = 500)
     private String nom;
+
+    @Column(length = 1000)
     private String adresse;
+
     private Double latitude;
     private Double longitude;
+
+    @Column(length = 50)
     private String telephone;
 
     @Enumerated(EnumType.STRING)
     private StatutPharmacie statut;
 
+    @Column(columnDefinition = "TEXT")
     private String horaires;
+
     private Boolean estDeGarde;
+
+    @Column(length = 200)
     private String numeroLicence;
+
     private Boolean estActif;
+
+    @Column(length = 1000)
     private String photo1Url;
+
+    @Column(length = 1000)
     private String photo2Url;
+
+    @Column(length = 1000)
     private String photo3Url;
+
+    @Column(length = 1000)
     private String fichierUrl;
+
+    @Column(length = 1000)
     private String documentLegalUrl;
+
+    @Column(columnDefinition = "TEXT")
     private String commentairePharmacie;
+
     private Integer scoreIa;
+
+    @Column(length = 500)
     private String contact;
 
     @OneToMany(mappedBy = "pharmacie", cascade = CascadeType.ALL, orphanRemoval = true)
