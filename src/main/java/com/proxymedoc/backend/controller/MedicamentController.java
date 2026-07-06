@@ -1,6 +1,7 @@
 package com.proxymedoc.backend.controller;
 
 import com.proxymedoc.backend.dto.MedicamentDTO;
+import com.proxymedoc.backend.dto.MedicamentSearchDTO;
 import com.proxymedoc.backend.mapper.EntityDTOMapper;
 import com.proxymedoc.backend.model.Medicament;
 import com.proxymedoc.backend.model.Pharmacie;
@@ -10,6 +11,7 @@ import com.proxymedoc.backend.model.Utilisateur;
 import com.proxymedoc.backend.repository.MedicamentRepository;
 import com.proxymedoc.backend.repository.StockRepository;
 import com.proxymedoc.backend.security.SecurityUtil;
+import com.proxymedoc.backend.service.MedicamentSearchService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,12 +35,14 @@ public class MedicamentController {
     private final StockRepository stockRepository;
     private final EntityDTOMapper mapper;
     private final SecurityUtil securityUtil;
+    private final MedicamentSearchService medicamentSearchService;
 
-    public MedicamentController(MedicamentRepository medicamentRepository, StockRepository stockRepository, EntityDTOMapper mapper, SecurityUtil securityUtil) {
+    public MedicamentController(MedicamentRepository medicamentRepository, StockRepository stockRepository, EntityDTOMapper mapper, SecurityUtil securityUtil, MedicamentSearchService medicamentSearchService) {
         this.medicamentRepository = medicamentRepository;
         this.stockRepository = stockRepository;
         this.mapper = mapper;
         this.securityUtil = securityUtil;
+        this.medicamentSearchService = medicamentSearchService;
     }
 
     @GetMapping
@@ -238,11 +242,90 @@ public class MedicamentController {
     }
 
     /**
-     * Search medications by category
+     * Advanced search for medications based on multiple criteria.
+     * This endpoint searches through denomination, dosage, forme galénique, and category.
+     * Returns essential information needed for the patient to identify medications,
+     * which will be later used to find the best pharmacies based on multicriteria optimization.
+     *
+     * GET /api/medicaments/search-advanced?q=Paracétamol%20500mg
+     * GET /api/medicaments/search-advanced?q=comprimé
+     *
+     * @param q Search query from the patient (can include medication name, dosage, form, or category)
+     * @return List of matching medications with essential details (id, denomination, category, dosage, forme_galeniqueXML
+     */
+    @GetMapping("/search-advanced")
+    public ResponseEntity<List<MedicamentSearchDTO>> searchAdvanced(@RequestParam(name = "q", required = false) String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        List<MedicamentSearchDTO> results = medicamentSearchService.searchMedicaments(query);
+        
+        if (results.isEmpty()) {
+            // Retourner une liste vide avec le code 200 (pas d'erreur, juste aucun résultat)
+            return ResponseEntity.ok(List.of());
+        }
+
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Search medications by dosage.
+     * GET /api/medicaments/search-by-dosage?dosage=500mg
+     *
+     * @param dosage Dosage to search for
+     * @return List of medications with this dosage
+     */
+    @GetMapping("/search-by-dosage")
+    public ResponseEntity<List<MedicamentSearchDTO>> searchByDosage(@RequestParam String dosage) {
+        if (dosage == null || dosage.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        List<MedicamentSearchDTO> results = medicamentSearchService.searchByDosage(dosage);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Search medications by pharmaceutical form.
+     * GET /api/medicaments/search-by-forme?forme=Comprimé
+     *
+     * @param forme Pharmaceutical form to search for
+     * @return List of medications with this form
+     */
+    @GetMapping("/search-by-forme")
+    public ResponseEntity<List<MedicamentSearchDTO>> searchByFormeGalenique(@RequestParam String forme) {
+        if (forme == null || forme.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        List<MedicamentSearchDTO> results = medicamentSearchService.searchByFormeGalenique(forme);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Search medications by category.
+     * GET /api/medicaments/search-by-category?category=Analgésique
+     *
+     * @param category Category to search for
+     * @return List of medications in this category
+     */
+    @GetMapping("/search-by-category")
+    public ResponseEntity<List<MedicamentSearchDTO>> searchByCategory(@RequestParam String category) {
+        if (category == null || category.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
+        List<MedicamentSearchDTO> results = medicamentSearchService.searchByCategorie(category);
+        return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Search medications by category (legacy endpoint)
      * GET /api/medicaments/category/antibiotique
      */
     @GetMapping("/category/{category}")
-    public ResponseEntity<List<MedicamentDTO>> searchByCategory(@PathVariable String category) {
+    public ResponseEntity<List<MedicamentDTO>> searchByCategoryLegacy(@PathVariable String category) {
         List<MedicamentDTO> result = medicamentRepository.findAll().stream()
                 .filter(m -> m.getCategorie() != null && m.getCategorie().equalsIgnoreCase(category))
                 .map(mapper::toMedicamentDTO)

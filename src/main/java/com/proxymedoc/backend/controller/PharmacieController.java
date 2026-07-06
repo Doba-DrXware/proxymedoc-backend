@@ -16,11 +16,16 @@ import org.springframework.web.bind.annotation.*;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/pharmacies")
@@ -222,30 +227,119 @@ public class PharmacieController {
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lon,
             @RequestParam(defaultValue = "10") Double radius) {
-        List<Pharmacie> pharmacies = pharmacieService.findAll().stream()
-                .filter(p -> p.getStatut() == null || p.getStatut() != com.proxymedoc.backend.model.StatutPharmacie.SUSPENDUE)
+        if (q == null || q.trim().isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        String normalizedQuery = normalize(q);
+        List<String> queryTokens = Arrays.stream(normalizedQuery.split("\\s+"))
+                .filter(token -> !token.isBlank())
+                .toList();
+        List<String> queryNumbers = extractNumberTokens(normalizedQuery);
+
+        List<Map<String, Object>> result = pharmacieService.findAll().stream()
+                .filter(p -> p.getStatut() == null || p.getStatut() != StatutPharmacie.SUSPENDUE)
                 .filter(p -> lat == null || lon == null || pharmacieService.isWithinRadius(p.getLatitude(), p.getLongitude(), lat, lon, radius))
-                .filter(p -> q == null || q.isBlank() || matchesQuery(p, q))
+                .flatMap(p -> {
+                    if (p.getStocks() == null) {
+                        return Stream.empty();
+                    }
+                    return p.getStocks().stream()
+                            .map(stock -> {
+                                Medicament medicament = stock.getMedicament();
+                                if (medicament == null || medicament.getDenomination() == null) {
+                                    return null;
+                                }
+
+                                boolean denominationMatch = matchesDenomination(medicament.getDenomination(), normalizedQuery, queryTokens);
+                                if (!denominationMatch) {
+                                    return null;
+                                }
+
+                                boolean dosageMatch = matchesDosage(medicament, queryNumbers);
+                                Map<String, Object> entry = new HashMap<>();
+                                entry.put("pharmacieId", p.getId());
+                                entry.put("pharmacieNom", p.getNom());
+                                entry.put("adresse", p.getAdresse());
+                                entry.put("telephone", p.getTelephone());
+                                entry.put("horaires", p.getHoraires());
+                                entry.put("garde", Boolean.TRUE.equals(p.getEstDeGarde()));
+                                entry.put("statut", p.getStatut() == null ? "attente" : switch (p.getStatut()) {
+                                    case VALIDEE -> "active";
+                                    case SUSPENDUE -> "suspendue";
+                                    case REJETEE -> "rejetee";
+                                    default -> "attente";
+                                });
+                                entry.put("score_ia", p.getScoreIa() != null ? p.getScoreIa() : 0);
+                                entry.put("latitude", p.getLatitude());
+                                entry.put("longitude", p.getLongitude());
+                                entry.put("distance", 0);
+                                entry.put("dosageMatch", dosageMatch);
+
+                                Map<String, Object> medPayload = new HashMap<>();
+                                medPayload.put("id", medicament.getId());
+                                medPayload.put("nom", medicament.getDenomination());
+                                medPayload.put("denomination", medicament.getDenomination());
+                                medPayload.put("prix", medicament.getPrixUnitaire());
+                                medPayload.put("stock", stock.getQuantiteDisponible());
+                                medPayload.put("description", medicament.getDescription());
+                                medPayload.put("dispo", stock.getQuantiteDisponible() != null && stock.getQuantiteDisponible() > 0);
+                                medPayload.put("image", medicament.getImageUrl());
+                                medPayload.put("imageUrl", medicament.getImageUrl());
+                                medPayload.put("noticeUrl", medicament.getNoticeUrl());
+                                medPayload.put("categorie", medicament.getCategorie());
+                                medPayload.put("formeGalenique", medicament.getFormeGalenique());
+                                medPayload.put("dosage", medicament.getDosage());
+                                medPayload.put("exigeOrdonnance", medicament.getExigeOrdonnance());
+                                entry.put("med", medPayload);
+
+                                return entry;
+                            });
+                })
+                .filter(Objects::nonNull)
+                .sorted((left, right) -> {
+                    boolean leftMatch = Boolean.TRUE.equals(left.get("dosageMatch"));
+                    boolean rightMatch = Boolean.TRUE.equals(right.get("dosageMatch"));
+                    return Boolean.compare(!leftMatch, !rightMatch);
+                })
                 .collect(Collectors.toList());
 
-        List<Map<String, Object>> result = pharmacies.stream().map(this::toFrontendPayload).collect(Collectors.toList());
         return ResponseEntity.ok(result);
     }
 
-    private boolean matchesQuery(Pharmacie pharmacie, String query) {
-        String normalizedQuery = normalize(query);
-        if (pharmacie.getNom() != null && normalize(pharmacie.getNom()).contains(normalizedQuery)) {
+    private boolean matchesDenomination(String denomination, String normalizedQuery, List<String> queryTokens) {
+        String normalizedDenomination = normalize(denomination);
+        if (normalizedDenomination.contains(normalizedQuery) || normalizedQuery.contains(normalizedDenomination)) {
             return true;
         }
-        if (pharmacie.getStocks() == null) {
+        for (String token : queryTokens) {
+            if (token.length() >= 3 && normalizedDenomination.contains(token)) {
+                return true;
+            }
+        }
+        return Arrays.stream(normalizedDenomination.split("\\s+"))
+                .filter(token -> token.length() >= 3)
+                .anyMatch(normalizedQuery::contains);
+    }
+
+    private boolean matchesDosage(Medicament medicament, List<String> queryNumbers) {
+        if (queryNumbers.isEmpty() || medicament.getDosage() == null) {
             return false;
         }
-        return pharmacie.getStocks().stream().anyMatch(stock -> {
-            Medicament medicament = stock.getMedicament();
-            return medicament != null
-                    && medicament.getDenomination() != null
-                    && normalize(medicament.getDenomination()).contains(normalizedQuery);
-        });
+        String normalizedDosage = normalize(medicament.getDosage());
+        return queryNumbers.stream().anyMatch(normalizedDosage::contains);
+    }
+
+    private List<String> extractNumberTokens(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        List<String> numbers = new ArrayList<>();
+        Matcher matcher = Pattern.compile("\\d+").matcher(value);
+        while (matcher.find()) {
+            numbers.add(matcher.group());
+        }
+        return numbers;
     }
 
     private String normalize(String value) {
