@@ -7,7 +7,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.time.LocalDate;
 
 @Component
 public class DataLoader implements CommandLineRunner {
@@ -29,6 +29,116 @@ public class DataLoader implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) throws Exception {
+        ensureAdmin();
+
+        Medicament amox250 = ensureMedicament(
+                "Amoxicilline 250mg",
+                "antibiotique",
+                "Antibiotique standard.",
+                "comprime",
+                "250mg",
+                false
+        );
+
+        Medicament parac = ensureMedicament(
+                "Paracétamol 500mg",
+                "analgesique",
+                "Analgesique courant.",
+                "comprime",
+                "500mg",
+                false
+        );
+
+        Medicament ibup = ensureMedicament(
+                "Ibuprofène 400mg",
+                "anti-inflammatoire",
+                "Anti-inflammatoire et antalgique.",
+                "comprime",
+                "400mg",
+                false
+        );
+
+        Medicament vitamineC = ensureMedicament(
+                "Vitamine C 1000mg",
+                "vitamine",
+                "Complément nutritionnel.",
+                "gélule",
+                "1000mg",
+                false
+        );
+
+        Medicament omeprazole = ensureMedicament(
+                "Oméprazole 20mg",
+                "gastro-entérologique",
+                "Traitement contre les brûlures d’estomac.",
+                "comprime",
+                "20mg",
+                false
+        );
+
+        Pharmacie palais = ensurePharmacie(
+                "Pharmacie du Palais",
+                "Bastos, Yaoundé",
+                3.8667,
+                11.5167,
+                "+237 699 123 456",
+                "Lun-Sam: 07h-22h",
+                true
+        );
+
+        Pharmacie centrale = ensurePharmacie(
+                "Pharmacie Centrale",
+                "Centre-ville, Yaoundé",
+                3.8480,
+                11.5021,
+                "+237 677 654 321",
+                "Lun-Sam: 07h-23h",
+                true
+        );
+
+        Pharmacie concorde = ensurePharmacie(
+                "Pharmacie de la Concorde",
+                "Mokolo, Yaoundé",
+                3.8765,
+                11.5098,
+                "+237 690 456 789",
+                "Lun-Sam: 08h-21h",
+                false
+        );
+
+        Pharmacie nation = ensurePharmacie(
+                "Pharmacie des Nations",
+                "Nkolbisson, Yaoundé",
+                3.9001,
+                11.4932,
+                "+237 655 112 233",
+                "Lun-Sam: 06h-22h",
+                true
+        );
+
+        ensureStock(amox250, palais, 30, 900.0, 5);
+        ensureStock(parac, palais, 100, 250.0, 10);
+        ensureStock(ibup, palais, 40, 1800.0, 6);
+        ensureStock(vitamineC, palais, 25, 3000.0, 8);
+
+        ensureStock(amox250, centrale, 45, 1050.0, 5);
+        ensureStock(parac, centrale, 90, 280.0, 10);
+        ensureStock(ibup, centrale, 35, 1900.0, 6);
+        ensureStock(omeprazole, centrale, 20, 2200.0, 4);
+
+        ensureStock(amox250, concorde, 35, 950.0, 5);
+        ensureStock(parac, concorde, 110, 270.0, 10);
+        ensureStock(vitamineC, concorde, 30, 3100.0, 8);
+        ensureStock(omeprazole, concorde, 25, 2400.0, 4);
+
+        ensureStock(amox250, nation, 50, 1100.0, 5);
+        ensureStock(parac, nation, 80, 300.0, 10);
+        ensureStock(ibup, nation, 30, 2000.0, 6);
+        ensureStock(vitamineC, nation, 28, 3200.0, 8);
+        ensureStock(omeprazole, nation, 22, 2600.0, 4);
+    }
+
+    private void ensureAdmin() {
         if (utilisateurRepository.findByEmail("admin@proxymedoc.com").isEmpty()) {
             Administrateur admin = new Administrateur();
             admin.setEmail("admin@proxymedoc.com");
@@ -37,70 +147,51 @@ public class DataLoader implements CommandLineRunner {
             admin.setPrenom("ProxyMedoc");
             utilisateurRepository.save(admin);
         }
+    }
 
-        if (pharmacieRepository.count() > 0) return; // don't seed sample data twice
+    private Medicament ensureMedicament(String denomination, String categorie, String description, String formeGalenique, String dosage, Boolean exigeOrdonnance) {
+        return medicamentRepository.findByDenominationIgnoreCase(denomination)
+                .orElseGet(() -> {
+                    Medicament medicament = new Medicament();
+                    medicament.setDenomination(denomination);
+                    medicament.setCategorie(categorie);
+                    medicament.setDescription(description);
+                    medicament.setFormeGalenique(formeGalenique);
+                    medicament.setDosage(dosage);
+                    medicament.setExigeOrdonnance(exigeOrdonnance);
+                    return medicamentRepository.save(medicament);
+                });
+    }
 
-        Medicament amox250 = new Medicament();
-        amox250.setDenomination("Amoxicilline 250mg");
-        amox250.setDenomination("Amoxicilline");
-        amox250.setCategorie("antibiotique");
-        amox250.setDescription("Antibiotique standard.");
-        medicamentRepository.save(amox250);
+    private Pharmacie ensurePharmacie(String nom, String adresse, Double latitude, Double longitude, String telephone, String horaires, Boolean estDeGarde) {
+        return pharmacieRepository.findByNomIgnoreCase(nom)
+                .orElseGet(() -> {
+                    Pharmacie pharmacie = new Pharmacie();
+                    pharmacie.setNom(nom);
+                    pharmacie.setAdresse(adresse);
+                    pharmacie.setLatitude(latitude);
+                    pharmacie.setLongitude(longitude);
+                    pharmacie.setTelephone(telephone);
+                    pharmacie.setHoraires(horaires);
+                    pharmacie.setEstDeGarde(estDeGarde);
+                    pharmacie.setStatut(StatutPharmacie.VALIDEE);
+                    return pharmacieRepository.save(pharmacie);
+                });
+    }
 
-        Medicament parac = new Medicament();
-        parac.setDenomination("Paracétamol 500mg");
-        parac.setDenomination("Paracétamol");
-        parac.setCategorie("analgesique");
-        parac.setDescription("Analgesique.");
-        medicamentRepository.save(parac);
+    private void ensureStock(Medicament medicament, Pharmacie pharmacie, Integer quantiteDisponible, Double prixUnitaire, Integer seuilAlerte) {
+        Stock stock = stockRepository.findByMedicamentIdAndPharmacieId(medicament.getId(), pharmacie.getId())
+                .orElseGet(() -> {
+                    Stock newStock = new Stock();
+                    newStock.setMedicament(medicament);
+                    newStock.setPharmacie(pharmacie);
+                    return newStock;
+                });
 
-        Pharmacie p1 = new Pharmacie();
-        p1.setNom("Pharmacie du Palais");
-        p1.setAdresse("Bastos, Yaoundé");
-        p1.setLatitude(3.8667);
-        p1.setLongitude(11.5167);
-        p1.setTelephone("+237 699 123 456");
-        p1.setStatut(StatutPharmacie.VALIDEE);
-        pharmacieRepository.save(p1);
-
-        Stock s1 = new Stock();
-        s1.setMedicament(amox250);
-        s1.setPharmacie(p1);
-        s1.setQuantiteDisponible(30);
-        s1.setPrixUnitaire(900.0);
-        s1.setSeuilAlerte(5);
-        stockRepository.save(s1);
-
-        Stock s2 = new Stock();
-        s2.setMedicament(parac);
-        s2.setPharmacie(p1);
-        s2.setQuantiteDisponible(100);
-        s2.setPrixUnitaire(250.0);
-        s2.setSeuilAlerte(10);
-        stockRepository.save(s2);
-
-        Pharmacie p2 = new Pharmacie();
-        p2.setNom("Pharmacie Centrale");
-        p2.setAdresse("Centre-ville, Yaoundé");
-        p2.setLatitude(3.8480);
-        p2.setLongitude(11.5021);
-        p2.setTelephone("+237 677 654 321");
-        p2.setStatut(StatutPharmacie.VALIDEE);
-        pharmacieRepository.save(p2);
-
-        Stock s3 = new Stock();
-        s3.setMedicament(amox250);
-        s3.setPharmacie(p2);
-        s3.setQuantiteDisponible(70);
-        s3.setPrixUnitaire(900.0);
-        s3.setSeuilAlerte(10);
-        stockRepository.save(s3);
-
-        Administrateur admin = new Administrateur();
-        admin.setEmail("admin@proxymedoc.com");
-        admin.setPassword(passwordEncoder.encode("proxyadmin"));
-        admin.setNom("Admin");
-        admin.setPrenom("ProxyMedoc");
-        utilisateurRepository.save(admin);
+        stock.setQuantiteDisponible(quantiteDisponible);
+        stock.setPrixUnitaire(prixUnitaire);
+        stock.setSeuilAlerte(seuilAlerte);
+        stock.setDateMAJ(LocalDate.now());
+        stockRepository.save(stock);
     }
 }

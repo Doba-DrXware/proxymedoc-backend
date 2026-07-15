@@ -6,8 +6,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MedicamentRepository extends JpaRepository<Medicament, Long> {
+
+    Optional<Medicament> findByDenominationIgnoreCase(String denomination);
 
     /**
      * Recherche les médicaments en fonction d'une chaîne de recherche.
