@@ -4,6 +4,7 @@ import com.proxymedoc.backend.model.*;
 import com.proxymedoc.backend.repository.*;
 import jakarta.transaction.Transactional;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,17 +15,30 @@ public class DataLoader implements CommandLineRunner {
     private final PharmacieRepository pharmacieRepository;
     private final MedicamentRepository medicamentRepository;
     private final StockRepository stockRepository;
+    private final UtilisateurRepository utilisateurRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public DataLoader(PharmacieRepository pharmacieRepository, MedicamentRepository medicamentRepository, StockRepository stockRepository) {
+    public DataLoader(PharmacieRepository pharmacieRepository, MedicamentRepository medicamentRepository, StockRepository stockRepository, UtilisateurRepository utilisateurRepository, PasswordEncoder passwordEncoder) {
         this.pharmacieRepository = pharmacieRepository;
         this.medicamentRepository = medicamentRepository;
         this.stockRepository = stockRepository;
+        this.utilisateurRepository = utilisateurRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     @Transactional
     public void run(String... args) throws Exception {
-        if (pharmacieRepository.count() > 0) return; // don't seed twice
+        if (utilisateurRepository.findByEmail("admin@proxymedoc.com").isEmpty()) {
+            Administrateur admin = new Administrateur();
+            admin.setEmail("admin@proxymedoc.com");
+            admin.setPassword(passwordEncoder.encode("proxyadmin"));
+            admin.setNom("Admin");
+            admin.setPrenom("ProxyMedoc");
+            utilisateurRepository.save(admin);
+        }
+
+        if (pharmacieRepository.count() > 0) return; // don't seed sample data twice
 
         Medicament amox250 = new Medicament();
         amox250.setDenomination("Amoxicilline 250mg");
@@ -82,5 +96,11 @@ public class DataLoader implements CommandLineRunner {
         s3.setSeuilAlerte(10);
         stockRepository.save(s3);
 
+        Administrateur admin = new Administrateur();
+        admin.setEmail("admin@proxymedoc.com");
+        admin.setPassword(passwordEncoder.encode("proxyadmin"));
+        admin.setNom("Admin");
+        admin.setPrenom("ProxyMedoc");
+        utilisateurRepository.save(admin);
     }
 }

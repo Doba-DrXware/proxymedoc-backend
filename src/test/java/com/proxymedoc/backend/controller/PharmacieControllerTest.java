@@ -50,7 +50,6 @@ class PharmacieControllerTest {
         Medicament medicament = new Medicament();
         medicament.setId(99L);
         medicament.setDenomination("Amoxicilline 500mg");
-        medicament.setPrixUnitaire(1500.0);
 
         Stock stock = new Stock();
         stock.setQuantiteDisponible(10);

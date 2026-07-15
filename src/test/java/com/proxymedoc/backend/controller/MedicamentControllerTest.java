@@ -56,7 +56,6 @@ class MedicamentControllerTest {
         Medicament saved = new Medicament();
         saved.setId(1L);
         saved.setDenomination("Amoxicilline 500mg");
-        saved.setPrixUnitaire(1500.0);
         saved.setDescription("Description test");
         saved.setCategorie("antibiotique");
         when(medicamentRepository.save(any(Medicament.class))).thenReturn(saved);
@@ -81,7 +80,6 @@ class MedicamentControllerTest {
         Medicament existing = new Medicament();
         existing.setId(10L);
         existing.setDenomination("Old name");
-        existing.setPrixUnitaire(100.0);
         existing.setDescription("Ancienne description");
         existing.setCategorie("autre");
 
@@ -101,7 +99,6 @@ class MedicamentControllerTest {
                         """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.denomination").value("Amoxicilline 500mg"))
-                .andExpect(jsonPath("$.prixUnitaire").value(1500.0))
                 .andExpect(jsonPath("$.dosage").value("500mg"));
     }
 
@@ -110,7 +107,6 @@ class MedicamentControllerTest {
         Medicament saved = new Medicament();
         saved.setId(2L);
         saved.setDenomination("Paracétamol 500mg");
-        saved.setPrixUnitaire(250.0);
         saved.setDescription("Description test");
         saved.setCategorie("analgesique");
 

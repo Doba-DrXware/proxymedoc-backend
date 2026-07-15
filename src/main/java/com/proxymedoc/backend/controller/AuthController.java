@@ -34,7 +34,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:3000")
+// Allow localhost dev servers on common ports during development
+@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
 public class AuthController {
 
     private final UtilisateurRepository utilisateurRepository;
