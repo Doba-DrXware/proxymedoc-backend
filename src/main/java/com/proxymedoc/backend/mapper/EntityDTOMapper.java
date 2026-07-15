@@ -14,7 +14,6 @@ public class EntityDTOMapper {
         m.setDenomination(dto.getDenomination());
         m.setCategorie(dto.getCategorie());
         m.setDescription(dto.getDescription());
-        m.setPrixUnitaire(dto.getPrixUnitaire());
         m.setFormeGalenique(dto.getFormeGalenique());
         m.setDosage(dto.getDosage());
         m.setExigeOrdonnance(dto.getExigeOrdonnance());
@@ -30,7 +29,6 @@ public class EntityDTOMapper {
         dto.setDenomination(m.getDenomination());
         dto.setCategorie(m.getCategorie());
         dto.setDescription(m.getDescription());
-        dto.setPrixUnitaire(m.getPrixUnitaire());
         dto.setFormeGalenique(m.getFormeGalenique());
         dto.setDosage(m.getDosage());
         dto.setExigeOrdonnance(m.getExigeOrdonnance());

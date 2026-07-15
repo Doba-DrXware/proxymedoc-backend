@@ -280,7 +280,7 @@ public class PharmacieController {
                                 medPayload.put("id", medicament.getId());
                                 medPayload.put("nom", medicament.getDenomination());
                                 medPayload.put("denomination", medicament.getDenomination());
-                                medPayload.put("prix", medicament.getPrixUnitaire());
+                                medPayload.put("prix", stock.getPrixUnitaire());
                                 medPayload.put("stock", stock.getQuantiteDisponible());
                                 medPayload.put("description", medicament.getDescription());
                                 medPayload.put("dispo", stock.getQuantiteDisponible() != null && stock.getQuantiteDisponible() > 0);
@@ -391,7 +391,7 @@ public class PharmacieController {
                 medPayload.put("id", medicament.getId());
                 medPayload.put("nom", medicament.getDenomination());
                 medPayload.put("denomination", medicament.getDenomination());
-                medPayload.put("prix", medicament.getPrixUnitaire());
+                medPayload.put("prix", stock.getPrixUnitaire());
                 medPayload.put("stock", stock.getQuantiteDisponible());
                 medPayload.put("description", medicament.getDescription());
                 medPayload.put("dispo", stock.getQuantiteDisponible() != null && stock.getQuantiteDisponible() > 0);

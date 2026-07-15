@@ -30,7 +30,6 @@ public class DataLoader implements CommandLineRunner {
         amox250.setDenomination("Amoxicilline 250mg");
         amox250.setDenomination("Amoxicilline");
         amox250.setCategorie("antibiotique");
-        amox250.setPrixUnitaire(900.0);
         amox250.setDescription("Antibiotique standard.");
         medicamentRepository.save(amox250);
 
@@ -38,7 +37,6 @@ public class DataLoader implements CommandLineRunner {
         parac.setDenomination("Paracétamol 500mg");
         parac.setDenomination("Paracétamol");
         parac.setCategorie("analgesique");
-        parac.setPrixUnitaire(250.0);
         parac.setDescription("Analgesique.");
         medicamentRepository.save(parac);
 
@@ -55,6 +53,7 @@ public class DataLoader implements CommandLineRunner {
         s1.setMedicament(amox250);
         s1.setPharmacie(p1);
         s1.setQuantiteDisponible(30);
+        s1.setPrixUnitaire(900.0);
         s1.setSeuilAlerte(5);
         stockRepository.save(s1);
 
@@ -62,6 +61,7 @@ public class DataLoader implements CommandLineRunner {
         s2.setMedicament(parac);
         s2.setPharmacie(p1);
         s2.setQuantiteDisponible(100);
+        s2.setPrixUnitaire(250.0);
         s2.setSeuilAlerte(10);
         stockRepository.save(s2);
 
@@ -78,6 +78,7 @@ public class DataLoader implements CommandLineRunner {
         s3.setMedicament(amox250);
         s3.setPharmacie(p2);
         s3.setQuantiteDisponible(70);
+        s3.setPrixUnitaire(900.0);
         s3.setSeuilAlerte(10);
         stockRepository.save(s3);
 

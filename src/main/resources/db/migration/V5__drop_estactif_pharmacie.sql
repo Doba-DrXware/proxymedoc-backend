@@ -1,1 +1,0 @@
-ALTER TABLE IF EXISTS pharmacie DROP COLUMN IF EXISTS est_actif;

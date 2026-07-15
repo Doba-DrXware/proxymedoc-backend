@@ -17,7 +17,6 @@ public class Medicament {
     @Column(length = 2000)
     private String description;
 
-    private Double prixUnitaire;
     private String formeGalenique;
     private String dosage;
     private Boolean exigeOrdonnance;
@@ -37,8 +36,6 @@ public class Medicament {
     public void setCategorie(String categorie) { this.categorie = categorie; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    public Double getPrixUnitaire() { return prixUnitaire; }
-    public void setPrixUnitaire(Double prixUnitaire) { this.prixUnitaire = prixUnitaire; }
     public String getFormeGalenique() { return formeGalenique; }
     public void setFormeGalenique(String formeGalenique) { this.formeGalenique = formeGalenique; }
     public String getDosage() { return dosage; }

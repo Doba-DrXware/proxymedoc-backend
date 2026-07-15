@@ -66,7 +66,7 @@ public class MedicamentController {
     public ResponseEntity<?> create(@Valid @RequestBody MedicamentDTO dto) {
         Medicament m = mapper.toMedicament(dto);
         Medicament saved = medicamentRepository.save(m);
-        createStockForCurrentPharmacy(saved, null);
+        createStockForCurrentPharmacy(saved, null, dto.getPrixUnitaire());
         return ResponseEntity.ok(mapper.toMedicamentDTO(saved));
     }
 
@@ -80,7 +80,6 @@ public class MedicamentController {
         existing.setDenomination(dto.getDenomination());
         existing.setCategorie(dto.getCategorie());
         existing.setDescription(dto.getDescription());
-        existing.setPrixUnitaire(dto.getPrixUnitaire());
         existing.setFormeGalenique(dto.getFormeGalenique());
         existing.setDosage(dto.getDosage());
         existing.setExigeOrdonnance(dto.getExigeOrdonnance());
@@ -108,7 +107,6 @@ public class MedicamentController {
         medicament.setDenomination(denomination);
         medicament.setCategorie(categorie);
         medicament.setDescription(description);
-        medicament.setPrixUnitaire(prixUnitaire);
         medicament.setFormeGalenique(formeGalenique);
         medicament.setDosage(dosage);
         medicament.setExigeOrdonnance(Boolean.TRUE.equals(exigeOrdonnance));
@@ -121,11 +119,11 @@ public class MedicamentController {
         }
 
         Medicament saved = medicamentRepository.save(medicament);
-        createStockForCurrentPharmacy(saved, stock);
+        createStockForCurrentPharmacy(saved, stock, prixUnitaire);
         return ResponseEntity.ok(mapper.toMedicamentDTO(saved));
     }
 
-    private void createStockForCurrentPharmacy(Medicament medicament, Integer quantity) {
+    private void createStockForCurrentPharmacy(Medicament medicament, Integer quantity, Double prixUnitaire) {
         Utilisateur currentUser = securityUtil.getCurrentUser();
         if (currentUser instanceof Pharmacien pharmacist && pharmacist.getPharmacie() != null) {
             Pharmacie pharmacy = pharmacist.getPharmacie();
@@ -133,6 +131,7 @@ public class MedicamentController {
             stock.setMedicament(medicament);
             stock.setPharmacie(pharmacy);
             stock.setQuantiteDisponible(quantity != null ? quantity : 0);
+            stock.setPrixUnitaire(prixUnitaire != null ? prixUnitaire : 0.0);
             stock.setSeuilAlerte(0);
             stock.setDateMAJ(java.time.LocalDate.now());
             stockRepository.save(stock);
@@ -162,8 +161,13 @@ public class MedicamentController {
                     return newStock;
                 });
 
-        if (request != null && request.quantiteDisponible() != null) {
-            stock.setQuantiteDisponible(request.quantiteDisponible());
+        if (request != null) {
+            if (request.quantiteDisponible() != null) {
+                stock.setQuantiteDisponible(request.quantiteDisponible());
+            }
+            if (request.prixUnitaire() != null) {
+                stock.setPrixUnitaire(request.prixUnitaire());
+            }
         }
         stock.setSeuilAlerte(0);
         stock.setDateMAJ(java.time.LocalDate.now());
@@ -198,7 +202,7 @@ public class MedicamentController {
         return ResponseEntity.noContent().build();
     }
 
-    public record StockUpdateRequest(Integer quantiteDisponible) {}
+    public record StockUpdateRequest(Integer quantiteDisponible, Double prixUnitaire) {}
 
     private String storeFile(MultipartFile file, String folderName) throws IOException {
         try {
@@ -356,8 +360,11 @@ public class MedicamentController {
             @RequestParam(required = false) Double max) {
         Double minPrice = min != null ? min : 0.0;
         Double maxPrice = max != null ? max : Double.MAX_VALUE;
-        List<MedicamentDTO> result = medicamentRepository.findAll().stream()
-                .filter(m -> m.getPrixUnitaire() >= minPrice && m.getPrixUnitaire() <= maxPrice)
+        List<MedicamentDTO> result = stockRepository.findAll().stream()
+                .filter(stock -> stock.getPrixUnitaire() != null && stock.getPrixUnitaire() >= minPrice && stock.getPrixUnitaire() <= maxPrice)
+                .map(Stock::getMedicament)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
                 .map(mapper::toMedicamentDTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(result);
