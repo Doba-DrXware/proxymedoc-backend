@@ -32,7 +32,7 @@ public class DataLoader implements CommandLineRunner {
         ensureAdmin();
 
         Medicament amox250 = ensureMedicament(
-                "Amoxicilline 250mg",
+                "Amoxicilline",
                 "antibiotique",
                 "Antibiotique standard.",
                 "comprime",
@@ -41,7 +41,7 @@ public class DataLoader implements CommandLineRunner {
         );
 
         Medicament parac = ensureMedicament(
-                "Paracétamol 500mg",
+                "Paracétamol",
                 "analgesique",
                 "Analgesique courant.",
                 "comprime",
@@ -50,7 +50,7 @@ public class DataLoader implements CommandLineRunner {
         );
 
         Medicament ibup = ensureMedicament(
-                "Ibuprofène 400mg",
+                "Ibuprofène",
                 "anti-inflammatoire",
                 "Anti-inflammatoire et antalgique.",
                 "comprime",
@@ -59,7 +59,7 @@ public class DataLoader implements CommandLineRunner {
         );
 
         Medicament vitamineC = ensureMedicament(
-                "Vitamine C 1000mg",
+                "Vitamine C",
                 "vitamine",
                 "Complément nutritionnel.",
                 "gélule",
@@ -68,7 +68,7 @@ public class DataLoader implements CommandLineRunner {
         );
 
         Medicament omeprazole = ensureMedicament(
-                "Oméprazole 20mg",
+                "Oméprazole",
                 "gastro-entérologique",
                 "Traitement contre les brûlures d’estomac.",
                 "comprime",

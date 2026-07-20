@@ -9,6 +9,7 @@ import com.proxymedoc.backend.model.StatutPharmacie;
 import com.proxymedoc.backend.model.Stock;
 import com.proxymedoc.backend.model.Utilisateur;
 import com.proxymedoc.backend.security.SecurityUtil;
+import com.proxymedoc.backend.service.OrsService;
 import com.proxymedoc.backend.service.PharmacieService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +34,13 @@ import java.util.stream.Stream;
 public class PharmacieController {
 
     private final PharmacieService pharmacieService;
+    private final OrsService orsService;
     private final EntityDTOMapper mapper;
     private final SecurityUtil securityUtil;
 
-    public PharmacieController(PharmacieService pharmacieService, EntityDTOMapper mapper, SecurityUtil securityUtil) {
+    public PharmacieController(PharmacieService pharmacieService, OrsService orsService, EntityDTOMapper mapper, SecurityUtil securityUtil) {
         this.pharmacieService = pharmacieService;
+        this.orsService = orsService;
         this.mapper = mapper;
         this.securityUtil = securityUtil;
     }
@@ -225,8 +228,7 @@ public class PharmacieController {
     public ResponseEntity<List<Map<String, Object>>> searchPharmacies(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Double lat,
-            @RequestParam(required = false) Double lon,
-            @RequestParam(defaultValue = "10") Double radius) {
+            @RequestParam(required = false) Double lon) {
         if (q == null || q.trim().isEmpty()) {
             return ResponseEntity.ok(List.of());
         }
@@ -237,14 +239,24 @@ public class PharmacieController {
                 .toList();
         List<String> queryNumbers = extractNumberTokens(normalizedQuery);
 
-        List<Map<String, Object>> result = pharmacieService.findAll().stream()
+        List<Pharmacie> pharmacyList = pharmacieService.findAll().stream()
                 .filter(p -> p.getStatut() == null || p.getStatut() != StatutPharmacie.SUSPENDUE)
-                .filter(p -> lat == null || lon == null || pharmacieService.isWithinRadius(p.getLatitude(), p.getLongitude(), lat, lon, radius))
+                .collect(Collectors.toList());
+
+        final Map<Long, Double> distanceMap = (lat != null && lon != null)
+                ? orsService.getDrivingDistances(lat, lon, pharmacyList)
+                : Map.of();
+
+        List<Map<String, Object>> result = pharmacyList.stream()
                 .flatMap(p -> {
+                    if (lat != null && lon != null && (p.getLatitude() == null || p.getLongitude() == null)) {
+                        return Stream.empty();
+                    }
                     if (p.getStocks() == null) {
                         return Stream.empty();
                     }
                     return p.getStocks().stream()
+                            .filter(stock -> stock.getQuantiteDisponible() != null && stock.getQuantiteDisponible() > 0)
                             .map(stock -> {
                                 Medicament medicament = stock.getMedicament();
                                 if (medicament == null || medicament.getDenomination() == null) {
@@ -273,8 +285,21 @@ public class PharmacieController {
                                 entry.put("score_ia", p.getScoreIa() != null ? p.getScoreIa() : 0);
                                 entry.put("latitude", p.getLatitude());
                                 entry.put("longitude", p.getLongitude());
-                                entry.put("distance", 0);
+                                String distanceSource = "none";
+                                double distance = 0.0;
+                                if (lat != null && lon != null && p.getLatitude() != null && p.getLongitude() != null) {
+                                    if (distanceMap.containsKey(p.getId())) {
+                                        distance = distanceMap.get(p.getId());
+                                        distanceSource = "ors";
+                                    } else {
+                                        distance = distanceKm(p.getLatitude(), p.getLongitude(), lat, lon);
+                                        distanceSource = "haversine";
+                                    }
+                                }
+                                entry.put("distance", distance);
+                                entry.put("distanceSource", distanceSource);
                                 entry.put("dosageMatch", dosageMatch);
+                                entry.put("prix", stock.getPrixUnitaire());
 
                                 Map<String, Object> medPayload = new HashMap<>();
                                 medPayload.put("id", medicament.getId());
@@ -297,12 +322,59 @@ public class PharmacieController {
                             });
                 })
                 .filter(Objects::nonNull)
-                .sorted((left, right) -> {
-                    boolean leftMatch = Boolean.TRUE.equals(left.get("dosageMatch"));
-                    boolean rightMatch = Boolean.TRUE.equals(right.get("dosageMatch"));
-                    return Boolean.compare(!leftMatch, !rightMatch);
-                })
                 .collect(Collectors.toList());
+
+        if (!result.isEmpty()) {
+            double minDistance = result.stream()
+                    .mapToDouble(entry -> ((Number) entry.get("distance")).doubleValue())
+                    .min()
+                    .orElse(0.0);
+            double maxDistance = result.stream()
+                    .mapToDouble(entry -> ((Number) entry.get("distance")).doubleValue())
+                    .max()
+                    .orElseGet(() -> 0.0);
+            double minPrice = result.stream()
+                    .mapToDouble(entry -> ((Number) entry.get("prix")).doubleValue())
+                    .min()
+                    .orElseGet(() -> 0.0);
+            double maxPrice = result.stream()
+                    .mapToDouble(entry -> ((Number) entry.get("prix")).doubleValue())
+                    .max()
+                    .orElseGet(() -> 0.0);
+
+            final double distanceRange = maxDistance - minDistance;
+            final double priceRange = maxPrice - minPrice;
+            final double wDistance = 0.5;
+            final double wPrice = 0.5;
+
+            result.forEach(entry -> {
+                double distanceValue = ((Number) entry.get("distance")).doubleValue();
+                double priceValue = ((Number) entry.get("prix")).doubleValue();
+
+                double normalizedDistance = distanceRange > 0
+                        ? (distanceValue - minDistance) / distanceRange
+                        : 0.0;
+                double normalizedPrice = priceRange > 0
+                        ? (priceValue - minPrice) / priceRange
+                        : 0.0;
+
+                double score = wDistance * normalizedDistance + wPrice * normalizedPrice;
+                entry.put("score", score);
+            });
+
+            result.sort((left, right) -> {
+                int dosageCompare = Boolean.compare(
+                        !Boolean.TRUE.equals(left.get("dosageMatch")),
+                        !Boolean.TRUE.equals(right.get("dosageMatch"))
+                );
+                if (dosageCompare != 0) {
+                    return dosageCompare;
+                }
+                double leftScore = ((Number) left.get("score")).doubleValue();
+                double rightScore = ((Number) right.get("score")).doubleValue();
+                return Double.compare(leftScore, rightScore);
+            });
+        }
 
         return ResponseEntity.ok(result);
     }
@@ -349,6 +421,20 @@ public class PharmacieController {
         return Normalizer.normalize(value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}+", "")
                 .toLowerCase(Locale.ROOT);
+    }
+
+    private double distanceKm(Double lat1, Double lon1, Double lat2, Double lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
+            return 0.0;
+        }
+        double earthRadiusKm = 6371.0;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
     }
 
     private Map<String, Object> toFrontendPayload(Pharmacie p) {
